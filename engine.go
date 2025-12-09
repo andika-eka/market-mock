@@ -2,23 +2,36 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/csv"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math/rand/v2"
+	"os"
 	"time"
 )
 
 const (
 	MinPrice               = 1.0
 	MaxPrice               = 200000.0
-	MinVol                 = 0.01
-	MaxVol                 = 0.40
-	MultiplierInterval     = 86400 * 7
+	MinVol                 = 0.05
+	MaxVol                 = 0.30
+	MultiplierInterval     = 86400 * 600
 	MinBasePriceMultplier  = 0.2
-	MaxBasePriceMultplier  = 2
+	MaxBasePriceMultplier  = 1.5
 	MinVolatilityMultplier = 0.2
-	MaxVolatilityMultplier = 2
+	MaxVolatilityMultplier = 0.9
+	dataPoints             = 120
 )
+
+type Candle struct {
+	Symbol string    `json:"symbol"`
+	Time   time.Time `json:"time"`
+	Open   float64   `json:"open"`
+	High   float64   `json:"high"`
+	Low    float64   `json:"low"`
+	Close  float64   `json:"close"`
+}
 
 // https://en.wikipedia.org/wiki/Smoothstep
 func smoothStep(t float64) float64 {
@@ -95,18 +108,72 @@ func GetPrice(symbol string, t time.Time) float64 {
 
 }
 
+func GetOHLC(symbol string, start time.Time, duration time.Duration) Candle {
+
+	stepSize := duration / time.Duration(dataPoints-1)
+
+	var prices [dataPoints]float64
+
+	for i := 0; i < dataPoints; i++ {
+		sampleTime := start.Add(time.Duration(i) * stepSize)
+		prices[i] = GetPrice(symbol, sampleTime)
+	}
+
+	high := prices[0]
+	low := prices[0]
+
+	for _, p := range prices {
+		if p > high {
+			high = p
+		}
+		if p < low {
+			low = p
+		}
+	}
+
+	// Return the clean struct
+	return Candle{
+		Symbol: symbol,
+		Time:   start,
+		Open:   prices[0],
+		High:   high,
+		Low:    low,
+		Close:  prices[dataPoints-1],
+	}
+}
+
 func main() {
-	symbol := "BTC-USD"
-	targetTime := time.Date(2025, 12, 8, 10, 0, 0, 0, time.UTC)
+	symbols := []string{"BTC-USD", "ETH-USD", "STABLE-COIN", "GOLD", "PLATINUM", "SILVER"}
+	filename := "market_data.csv"
 
-	fmt.Printf(" %s - %s\n", symbol, targetTime)
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal("Cannot create file", err)
+	}
+	defer file.Close()
 
-	price1 := GetPrice(symbol, targetTime)
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
 
-	price2 := GetPrice(symbol, targetTime)
-	fmt.Printf("result: %.4f\n - %.4f\n", price1, price2)
+	writer.Write([]string{"symbol", "date", "open", "high", "low", "close"})
 
-	for i := 0; i < 1000; i += 10 {
-		fmt.Printf("%.4f\n", GetPrice(symbol, targetTime.Add(time.Duration(i)*time.Second)))
+	//get last 10 years of data
+	endDate := time.Now()
+	startDate := endDate.AddDate(-10, 0, 0)
+	interval := 300 * time.Hour
+
+	for t := startDate; t.Before(endDate); t = t.Add(interval) {
+		for _, s := range symbols {
+			c := GetOHLC(s, t, interval)
+			row := []string{
+				c.Symbol,
+				c.Time.Format("2006-01-02 15:04:05"),
+				fmt.Sprintf("%.2f", c.Open),
+				fmt.Sprintf("%.2f", c.High),
+				fmt.Sprintf("%.2f", c.Low),
+				fmt.Sprintf("%.2f", c.Close),
+			}
+			writer.Write(row)
+		}
 	}
 }
