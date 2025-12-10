@@ -15,12 +15,13 @@ const (
 	MinPrice               = 1.0
 	MaxPrice               = 200000.0
 	MinVol                 = 0.05
-	MaxVol                 = 0.30
-	MultiplierInterval     = 86400 * 600
+	MaxVol                 = 0.20
+	MultiplierIntervalMax  = 86400 * 900
+	MultiplierIntervalMin  = 86400 * 100
 	MinBasePriceMultplier  = 0.2
 	MaxBasePriceMultplier  = 1.5
 	MinVolatilityMultplier = 0.2
-	MaxVolatilityMultplier = 0.9
+	MaxVolatilityMultplier = 0.8
 	dataPoints             = 120
 )
 
@@ -43,27 +44,43 @@ func getHashFloat(seed uint64) float64 {
 	return r.Float64()
 }
 
+func getHashInt(seed uint64, n int64) int64 {
+	r := rand.New(rand.NewPCG(seed, seed^0x5CA1AB1E))
+	return r.Int64N(n)
+}
+
+func getRangeHashInt(seed uint64, rangeNum int) int {
+	r := rand.New(rand.NewPCG(seed, seed^0x5CA1AB1E))
+	return r.IntN(rangeNum)
+}
+
+func getRangehashFloat(seed uint64, min float64, max float64) float64 {
+	return min + getHashFloat(seed)*(max-min)
+
+}
+
 func GetMultiplier(symbol string, t time.Time) (price float64, volatility float64) {
-
-	unix := t.Unix()
-	// get week number x since unix 0
-	currentStep := unix / MultiplierInterval
-	nextStep := currentStep + 1 //next week
-
-	//progress within week - how long since week start
-	progress := float64(unix%MultiplierInterval) / float64(MultiplierInterval)
-
-	progress = smoothStep(progress) // TODO check when turned off
 
 	hashSymbol := fnv.New64a()
 	hashSymbol.Write([]byte(symbol))
+	multiplierInterval := int64(MultiplierIntervalMin + getRangeHashInt(hashSymbol.Sum64(), MultiplierIntervalMax-MultiplierIntervalMin))
+	offset := getHashInt(hashSymbol.Sum64(), multiplierInterval)
+	unix := t.Unix() + offset
+	// get week number x since unix 0
+	currentStep := unix / multiplierInterval
+	nextStep := currentStep + 1 //next week
+
+	//progress within week - how long since week start
+	progress := float64(unix%multiplierInterval) / float64(multiplierInterval)
+
+	progress = smoothStep(progress) // TODO check when turned off
 
 	binary.Write(hashSymbol, binary.BigEndian, currentStep)
 	seedStart := hashSymbol.Sum64()
 
 	//multiplier at start
-	startPriceMult := MinBasePriceMultplier + getHashFloat(seedStart)*(MaxBasePriceMultplier-MinBasePriceMultplier)
-	startVolMult := MinBasePriceMultplier + getHashFloat(seedStart+1)*(MaxVolatilityMultplier-MinVolatilityMultplier)
+	startPriceMult := getRangehashFloat(seedStart, MinBasePriceMultplier, MaxBasePriceMultplier)
+	startVolMult := getRangehashFloat(seedStart+1, MinVolatilityMultplier, MaxVolatilityMultplier)
 
 	hashSymbol.Reset()
 	hashSymbol.Write([]byte(symbol))
@@ -71,8 +88,8 @@ func GetMultiplier(symbol string, t time.Time) (price float64, volatility float6
 	seedEnd := hashSymbol.Sum64()
 
 	//multiplier at start
-	endPriceMult := MinBasePriceMultplier + getHashFloat(seedEnd)*(MaxBasePriceMultplier-MinBasePriceMultplier)
-	endVolMult := MinBasePriceMultplier + getHashFloat(seedEnd+1)*(MaxVolatilityMultplier-MinVolatilityMultplier)
+	endPriceMult := getRangehashFloat(seedEnd, MinBasePriceMultplier, MaxBasePriceMultplier)
+	endVolMult := getRangehashFloat(seedEnd+1, MinBasePriceMultplier, MaxBasePriceMultplier)
 
 	//multiplier current - interpolation
 	price = startPriceMult + (endPriceMult-startPriceMult)*progress
@@ -86,9 +103,8 @@ func GetPrice(symbol string, t time.Time) float64 {
 	hashSymbol := fnv.New64a()
 	hashSymbol.Write([]byte(symbol))
 	seedSymbol := hashSymbol.Sum64()
-	valueSymbol := rand.New(rand.NewPCG(seedSymbol, seedSymbol^0x5CA1AB1E))
-	symbolBasePrice := MinPrice + valueSymbol.Float64()*(MaxPrice-MinPrice)
-	symbolVolatility := MinVol + valueSymbol.Float64()*(MaxVol-MinVol)
+	symbolBasePrice := getRangehashFloat(seedSymbol, MinPrice, MaxPrice)
+	symbolVolatility := getRangehashFloat(seedSymbol, MinVol, MaxVol)
 
 	priceMulti, volMulti := GetMultiplier(symbol, t)
 	symbolBasePrice = symbolBasePrice * priceMulti
@@ -100,9 +116,7 @@ func GetPrice(symbol string, t time.Time) float64 {
 	binary.Write(hashTime, binary.BigEndian, timeSeed)
 
 	seedFinal := hashTime.Sum64()
-	valueTime := rand.New(rand.NewPCG(seedFinal, seedFinal^0x5CA1AB1E))
-
-	variation := (valueTime.Float64() * 2 * symbolVolatility) - symbolVolatility
+	variation := (getHashFloat(seedFinal) * 2 * symbolVolatility) - symbolVolatility
 	price := symbolBasePrice * (1 + variation)
 	return price
 
