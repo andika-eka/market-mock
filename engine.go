@@ -2,12 +2,8 @@ package main
 
 import (
 	"encoding/binary"
-	"encoding/csv"
-	"fmt"
 	"hash/fnv"
-	"log"
 	"math/rand/v2"
-	"os"
 	"time"
 )
 
@@ -26,12 +22,11 @@ const (
 )
 
 type Candle struct {
-	Symbol string    `json:"symbol"`
-	Time   time.Time `json:"time"`
-	Open   float64   `json:"open"`
-	High   float64   `json:"high"`
-	Low    float64   `json:"low"`
-	Close  float64   `json:"close"`
+	Time  time.Time `json:"time"`
+	Open  float64   `json:"open"`
+	High  float64   `json:"high"`
+	Low   float64   `json:"low"`
+	Close float64   `json:"close"`
 }
 
 // https://en.wikipedia.org/wiki/Smoothstep
@@ -60,7 +55,6 @@ func getRangehashFloat(seed uint64, min float64, max float64) float64 {
 }
 
 func GetMultiplier(symbol string, t time.Time) (price float64, volatility float64) {
-
 
 	hashSymbol := fnv.New64a()
 	hashSymbol.Write([]byte(symbol))
@@ -147,47 +141,10 @@ func GetOHLC(symbol string, start time.Time, duration time.Duration) Candle {
 
 	// Return the clean struct
 	return Candle{
-		Symbol: symbol,
-		Time:   start,
-		Open:   prices[0],
-		High:   high,
-		Low:    low,
-		Close:  prices[dataPoints-1],
-	}
-}
-
-func main() {
-	symbols := []string{"BTC-USD", "ETH-USD", "STABLE-COIN", "GOLD", "PLATINUM", "SILVER"}
-	filename := "market_data.csv"
-
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal("Cannot create file", err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	writer.Write([]string{"symbol", "date", "open", "high", "low", "close"})
-
-	//get last 10 years of data
-	endDate := time.Now()
-	startDate := endDate.AddDate(-10, 0, 0)
-	interval := 300 * time.Hour
-
-	for t := startDate; t.Before(endDate); t = t.Add(interval) {
-		for _, s := range symbols {
-			c := GetOHLC(s, t, interval)
-			row := []string{
-				c.Symbol,
-				c.Time.Format("2006-01-02 15:04:05"),
-				fmt.Sprintf("%.2f", c.Open),
-				fmt.Sprintf("%.2f", c.High),
-				fmt.Sprintf("%.2f", c.Low),
-				fmt.Sprintf("%.2f", c.Close),
-			}
-			writer.Write(row)
-		}
+		Time:  start,
+		Open:  prices[0],
+		High:  high,
+		Low:   low,
+		Close: prices[dataPoints-1],
 	}
 }
