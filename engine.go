@@ -61,6 +61,7 @@ func getRangehashFloat(seed uint64, min float64, max float64) float64 {
 
 func GetMultiplier(symbol string, t time.Time) (price float64, volatility float64) {
 
+
 	hashSymbol := fnv.New64a()
 	hashSymbol.Write([]byte(symbol))
 	multiplierInterval := int64(MultiplierIntervalMin + getRangeHashInt(hashSymbol.Sum64(), MultiplierIntervalMax-MultiplierIntervalMin))
@@ -72,7 +73,6 @@ func GetMultiplier(symbol string, t time.Time) (price float64, volatility float6
 
 	//progress within week - how long since week start
 	progress := float64(unix%multiplierInterval) / float64(multiplierInterval)
-
 	progress = smoothStep(progress) // TODO check when turned off
 
 	binary.Write(hashSymbol, binary.BigEndian, currentStep)
