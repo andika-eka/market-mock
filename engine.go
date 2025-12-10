@@ -46,11 +46,11 @@ func getHashFloat(seed uint64) float64 {
 func GetMultiplier(symbol string, t time.Time) (price float64, volatility float64) {
 
 	unix := t.Unix()
-	// get week number x since unix 0
+	// get interval number n since unix 0
 	currentStep := unix / MultiplierInterval
-	nextStep := currentStep + 1 //next week
+	nextStep := currentStep + 1 //next interval
 
-	//progress within week - how long since week start
+	//progress within the 2 interval - how long since interval start
 	progress := float64(unix%MultiplierInterval) / float64(MultiplierInterval)
 
 	progress = smoothStep(progress) // TODO check when turned off
