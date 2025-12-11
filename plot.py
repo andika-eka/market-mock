@@ -3,16 +3,16 @@ import matplotlib.pyplot as plt
 
 df = pd.read_csv("market_data.csv")
 
-df['date'] = pd.to_datetime(df['date'])
+df['Time'] = pd.to_datetime(df['Time'])
 
 plt.figure(figsize=(12, 6))
 
-unique_symbols = df['symbol'].unique()
+unique_symbols = df['Symbol'].unique()
 
 for sym in unique_symbols:
-    data = df[df['symbol'] == sym]
+    data = df[df['Symbol'] == sym]
     
-    plt.plot(data['date'], data['close'], label=sym)
+    plt.plot(data['Time'], data['Close'], label=sym)
 
 plt.title("Deterministic Market Simulation (10 Year History)")
 plt.xlabel("Year")
