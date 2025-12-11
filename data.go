@@ -51,6 +51,16 @@ func getDataSize(start time.Time, end time.Time, interval time.Duration) int {
 	return int(duration / interval)
 }
 
+func GetDataSeries(symbol string, start time.Time, end time.Time, interval time.Duration) *CandleSeries {
+	size := getDataSize(start, end, interval)
+	series := NewCandleSeries(symbol, size)
+	for t := start; t.Before(end); t = t.Add(interval) {
+		candle := GetOHLC(symbol, t, interval)
+		series.AddCandle(candle)
+	}
+	return series
+}
+
 func main() {
 	symbols := []string{"BTC-USD", "ETH-USD", "STABLE-COIN", "GOLD", "PLATINUM", "SILVER"}
 	filename := "market_data.csv"
@@ -64,24 +74,37 @@ func main() {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	writer.Write([]string{"symbol", "date", "open", "high", "low", "close"})
-
 	//get last 10 years of data
 	endDate := time.Now()
 	startDate := endDate.AddDate(-10, 0, 0)
 	interval := 300 * time.Hour
-
-	for t := startDate; t.Before(endDate); t = t.Add(interval) {
-		for _, s := range symbols {
-			c := GetOHLC(s, t, interval)
-			row := []string{
-				c.Time.Format("2006-01-02 15:04:05"),
-				fmt.Sprintf("%.2f", c.Open),
-				fmt.Sprintf("%.2f", c.High),
-				fmt.Sprintf("%.2f", c.Low),
-				fmt.Sprintf("%.2f", c.Close),
+	header := true
+	for _, s := range symbols {
+		series := GetDataSeries(s, startDate, endDate, interval)
+		if header {
+			rows := series.ToCSV(true)
+			header = false
+			for _, row := range rows {
+				writer.Write(row)
 			}
-			writer.Write(row)
+		} else {
+			rows := series.ToCSV(false)
+			for _, row := range rows {
+				writer.Write(row)
+			}
 		}
 	}
+	// for t := startDate; t.Before(endDate); t = t.Add(interval) {
+	// 	for _, s := range symbols {
+	// 		c := GetOHLC(s, t, interval)
+	// 		row := []string{
+	// 			c.Time.Format("2006-01-02 15:04:05"),
+	// 			fmt.Sprintf("%.2f", c.Open),
+	// 			fmt.Sprintf("%.2f", c.High),
+	// 			fmt.Sprintf("%.2f", c.Low),
+	// 			fmt.Sprintf("%.2f", c.Close),
+	// 		}
+	// 		writer.Write(row)
+	// 	}
+	// }
 }
