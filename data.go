@@ -94,17 +94,4 @@ func main() {
 			}
 		}
 	}
-	// for t := startDate; t.Before(endDate); t = t.Add(interval) {
-	// 	for _, s := range symbols {
-	// 		c := GetOHLC(s, t, interval)
-	// 		row := []string{
-	// 			c.Time.Format("2006-01-02 15:04:05"),
-	// 			fmt.Sprintf("%.2f", c.Open),
-	// 			fmt.Sprintf("%.2f", c.High),
-	// 			fmt.Sprintf("%.2f", c.Low),
-	// 			fmt.Sprintf("%.2f", c.Close),
-	// 		}
-	// 		writer.Write(row)
-	// 	}
-	// }
 }
