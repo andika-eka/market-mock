@@ -1,23 +1,53 @@
+import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+import pprint
 
-df = pd.read_csv("market_data.csv")
+SYMBOL = "BTC-USD, ETH-USD, XRP-USD"
+DAYS = 365 * 10
+# DAYS =  2
+#  
+INTERVAL = "240h"
 
-df['Time'] = pd.to_datetime(df['Time'])
+url = f"http://localhost:8080/api/candles?symbol={SYMBOL}&days={DAYS}&interval={INTERVAL}"
 
-plt.figure(figsize=(12, 6))
-
-unique_symbols = df['Symbol'].unique()
-
-for sym in unique_symbols:
-    data = df[df['Symbol'] == sym]
+try:
+    response = requests.get(url)
+    response.raise_for_status() 
     
-    plt.plot(data['Time'], data['Close'], label=sym)
+    api_response = response.json()
+    
+    pprint.pprint(api_response)
+    
+    if not api_response.get('success', False):
+        print(f"API Error: {api_response.get('message')}")
+        exit()
 
-plt.title("Deterministic Market Simulation (10 Year History)")
-plt.xlabel("Year")
-plt.ylabel("Price ($)")
-plt.legend()
-plt.grid(True, alpha=0.3)
+    data_list = api_response['data']
+    
+    plt.figure(figsize=(12, 6))
+    
+    for data in data_list:
+        print(f"Processing symbol: {data["Symbol"]}")
+        
+        candles = data["Candles"]
 
-plt.savefig("market_simulation.png")
+        
+        # for candle in candles:
+            
+        df = pd.DataFrame(data["Candles"])
+        
+        df['time'] = pd.to_datetime(df['time'])
+        df['close'] = df['close'].astype(float)
+        
+        plt.plot(df['time'], df['close'], label=data["Symbol"], linewidth=1)
+
+    plt.title(f"Market Simulation: {SYMBOL} ({DAYS} Days)")
+    plt.xlabel("Date")
+    plt.ylabel("Price ($)")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig("market_simulation.png")
+
+except Exception as e:
+    print(e)
