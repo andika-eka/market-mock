@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
-	"log"
-	"os"
 	"time"
 )
 
@@ -59,39 +56,4 @@ func GetDataSeries(symbol string, start time.Time, end time.Time, interval time.
 		series.AddCandle(candle)
 	}
 	return series
-}
-
-func main() {
-	symbols := []string{"BTC-USD", "ETH-USD", "STABLE-COIN", "GOLD", "PLATINUM", "SILVER"}
-	filename := "market_data.csv"
-
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal("Cannot create file", err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	//get last 10 years of data
-	endDate := time.Now()
-	startDate := endDate.AddDate(-10, 0, 0)
-	interval := 300 * time.Hour
-	header := true
-	for _, s := range symbols {
-		series := GetDataSeries(s, startDate, endDate, interval)
-		if header {
-			rows := series.ToCSV(true)
-			header = false
-			for _, row := range rows {
-				writer.Write(row)
-			}
-		} else {
-			rows := series.ToCSV(false)
-			for _, row := range rows {
-				writer.Write(row)
-			}
-		}
-	}
 }
